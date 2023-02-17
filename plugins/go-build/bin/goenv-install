@@ -58,6 +58,7 @@ usage() {
 }
 
 definitions() {
+  update;
   local query="$1"
   go-build --definitions | $(type -p ggrep grep | head -1) -F "$query" || true
 }
@@ -68,6 +69,61 @@ latest_version() {
 
 latest_includes_unstable_version() {
   definitions | grep -ioE "^$1\\.?([0-9]+|beta[0-9]+|rc[0-9]+)?" | tail -1
+}
+
+update() {
+  local RESP=$(curl https://go.dev/dl/\?mode\=json)
+  local VERSION=$(echo $RESP | jq ".[0].version" | grep -o '[^a-z"]*')
+  local WRITE_FILE=$GOENV_ROOT/plugins/go-build/share/go-build/$VERSION
+
+  # Check if the file already exists
+  if [ -f "$WRITE_FILE" ]; then
+      return
+  fi
+
+  local DARWIN_64BIT="go$VERSION.darwin-amd64.tar.gz"
+  local DARWIN_ARM="go$VERSION.darwin-arm64.tar.gz"
+  local FREEBSD_32BIT="go$VERSION.freebsd-386.tar.gz"
+  local FREEBSD_64BIT="go$VERSION.freebsd-amd64.tar.gz"
+  local LINUX_32BIT="go$VERSION.linux-386.tar.gz"
+  local LINUX_64BIT="go$VERSION.linux-amd64.tar.gz"
+  local LINUX_ARM_64BIT="go$VERSION.linux-arm64.tar.gz"
+  local LINUX_ARM="go$VERSION.linux-armv6l.tar.gz"
+
+  # Define the URLs for the downloads
+  local DARWIN_64BIT_URL="https://golang.org/dl/$DARWIN_64BIT"
+  local DARWIN_ARM_URL="https://golang.org/dl/$DARWIN_ARM"
+  local FREEBSD_32BIT_URL="https://golang.org/dl/$FREEBSD_32BIT"
+  local FREEBSD_64BIT_URL="https://golang.org/dl/$FREEBSD_64BIT"
+  local LINUX_32BIT_URL="https://golang.org/dl/$LINUX_32BIT"
+  local LINUX_64BIT_URL="https://golang.org/dl/$LINUX_64BIT"
+  local LINUX_ARM_64BIT_URL="https://golang.org/dl/$LINUX_ARM_64BIT"
+  local LINUX_ARM_URL="https://golang.org/dl/$LINUX_ARM"
+
+  # Create the output
+  local DARWIN_64BIT_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $DARWIN_64BIT 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_darwin_64bit \"Go Darwin 64bit $VERSION\" \"$DARWIN_64BIT#$DARWIN_64BIT_SHA\"" >> $WRITE_FILE
+
+  local DARWIN_ARM_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $DARWIN_ARM 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_darwin_arm \"Go Darwin arm $VERSION\" \"$DARWIN_ARM#$DARWIN_ARM_SHA\"" >> $WRITE_FILE
+
+  local FREEBSD_32BIT_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $FREEBSD_32BIT_SHA 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_bsd_32bit \"Go Freebsd 32bit $VERSION\" \"$FREEBSD_32BIT#$FREEBSD_32BIT_SHA\"" >> $WRITE_FILE
+
+  local FREEBSD_64BIT_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $FREEBSD_64BIT 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_bsd_64bit \"Go Freebsd 64bit $VERSION\" \"$FREEBSD_64BIT#$FREEBSD_64BIT_SHA\"" >> $WRITE_FILE
+
+  local LINUX_32BIT_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $LINUX_32BIT 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_linux_32bit \"Go Linux 32bit $VERSION\" \"$LINUX_32BIT#$LINUX_32BIT_SHA\"" >> $WRITE_FILE
+
+  local LINUX_64BIT_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $LINUX_64BIT 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_linux_64bit \"Go Linux 64bit $VERSION\" \"$LINUX_64BIT#$LINUX_64BIT_SHA\"" >> $WRITE_FILE
+
+  local LINUX_ARM_64BIT_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $LINUX_ARM_64BIT 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_linux_arm_64bit \"Go Linux arm 64bit $VERSION\" \"$LINUX_ARM_64BIT#$LINUX_ARM_64BIT_SHA\"" >> $WRITE_FILE
+
+  local LINUX_ARM_SHA=$(echo $RESP | jq -c '.[0].files' | jq -r --arg filename $LINUX_ARM 'map((select(.filename | contains($filename) )))' | jq -r '.[0].sha256')
+  echo "install_linux_arm \"Go Linux arm $VERSION\" \"$LINUX_ARM#$LINUX_ARM_SHA\"" >> $WRITE_FILE
 }
 
 indent() {
